@@ -1,8 +1,18 @@
+'''Android USB serial FTDI driver.
+
+Classes:
+FtdiSerial(serial.serialutil.SerialBase)
+'''
+
 from serial.serialutil import SerialBase, SerialException
 from usb4a import usb
 
 class FtdiSerial(SerialBase):
-    '''FTDI serial port.'''
+    '''FTDI serial port class.
+    
+    FtdiSerial extends serial.serialutil.SerialBase.
+    It can be used in a similar way to serial.Serial from pyserial.
+    '''
     
     # Requests
     SIO_RESET = 0               # Reset the port
@@ -53,8 +63,14 @@ class FtdiSerial(SerialBase):
     DEFAULT_READ_BUFFER_SIZE = 16 * 1024
     DEFAULT_WRITE_BUFFER_SIZE = 16 * 1024
     
-    FTDI_DEVICE_OUT_REQTYPE = usb.build_usb_control_request_type(usb.UsbConstants.USB_DIR_OUT, usb.UsbConstants.USB_TYPE_VENDOR, usb.USB_RECIPIENT_DEVICE)
-    FTDI_DEVICE_IN_REQTYPE = usb.build_usb_control_request_type(usb.UsbConstants.USB_DIR_IN, usb.UsbConstants.USB_TYPE_VENDOR, usb.USB_RECIPIENT_DEVICE)
+    FTDI_DEVICE_OUT_REQTYPE = usb.build_usb_control_request_type(
+        usb.UsbConstants.USB_DIR_OUT, 
+        usb.UsbConstants.USB_TYPE_VENDOR, 
+        usb.USB_RECIPIENT_DEVICE)
+    FTDI_DEVICE_IN_REQTYPE = usb.build_usb_control_request_type(
+        usb.UsbConstants.USB_DIR_IN, 
+        usb.UsbConstants.USB_TYPE_VENDOR, 
+        usb.USB_RECIPIENT_DEVICE)
     
     USB_WRITE_TIMEOUT_MILLIS = 5000
     USB_READ_TIMEOUT_MILLIS = 5000
@@ -74,6 +90,10 @@ class FtdiSerial(SerialBase):
         super(FtdiSerial, self).__init__(*args, **kwargs)
     
     def open(self):
+        '''Open the serial port.
+        
+        When the serial port is instantiated, it will try to open automatically.
+        '''
         self.close()
         
         device = usb.get_usb_device(self.portstr)
@@ -97,7 +117,9 @@ class FtdiSerial(SerialBase):
         for i in range(self._device.getInterfaceCount()):
             if i == 0:
                 self._interface = self._device.getInterface(i)
-            if not self._connection.claimInterface(self._device.getInterface(i), True):
+            if not self._connection.claimInterface(
+                self._device.getInterface(i), 
+                True):
                 raise SerialException("Could not claim interface {}.".format(i))
         
         self._index = self._interface.getId() + 1
@@ -122,66 +144,136 @@ class FtdiSerial(SerialBase):
         self._reconfigure_port()
         
     def close(self):
+        '''Close the serial port.'''
         if self._connection:
             self._connection.close()
         self._connection = None
         self.is_open = False
     
     def reset(self):
+        '''Reset the serial port.'''
         if self._connection:
-            result = self._ctrl_transfer_out(self.SIO_RESET, self.SIO_RESET_SIO, 0)
+            result = self._ctrl_transfer_out(
+                self.SIO_RESET, 
+                self.SIO_RESET_SIO, 
+                0)
             if result != 0:
                 raise SerialException("Reset failed: result={}".format(result))
     
-    def read(self, data_length):
+    def read(self, data_length=1):
+        '''Read data from the serial port.
+        
+        This function should be used in another thread, as it blocks.
+        
+        Parameters:
+            data_length (int): the length of read buffer(better <= 1024).
+    
+        Returns:
+            dest (bytearray): data read from the serial port. 
+        '''
         if not self.is_open:
             return None
         if not self._read_endpoint:
             raise SerialException("Read endpoint does not exist!")
         
         buf = bytearray(data_length)
-        timeout = int(self._timeout * 1000 if self._timeout else self.USB_READ_TIMEOUT_MILLIS)
-        totalBytesRead = self._connection.bulkTransfer(self._read_endpoint, buf, data_length, timeout)
+        timeout = int(
+            self._timeout * 1000 if self._timeout \
+                else self.USB_READ_TIMEOUT_MILLIS)
+        totalBytesRead = self._connection.bulkTransfer(
+            self._read_endpoint, 
+            buf, 
+            data_length, 
+            timeout)
         if totalBytesRead < self.MODEM_STATUS_HEADER_LENGTH:
-            raise SerialException("Expected at least {} bytes".format(self.MODEM_STATUS_HEADER_LENGTH))
+            raise SerialException(
+                "Expected at least {} bytes".format(
+                    self.MODEM_STATUS_HEADER_LENGTH))
     
         dest = bytearray()
-        self._filterStatusBytes(buf, dest, totalBytesRead, self._read_endpoint.getMaxPacketSize())
+        self._filterStatusBytes(
+            buf, 
+            dest, 
+            totalBytesRead, 
+            self._read_endpoint.getMaxPacketSize())
         return dest
     
     def write(self, data):
+        '''Write data to the serial port.
+        
+        Parameters:
+            data (bytearray): data written to the serial port.
+    
+        Returns:
+            wrote (int): the number of data bytes written. 
+        '''
         if not self.is_open:
             return None
         offset = 0
-        timeout = int(self._write_timeout * 1000 if self._write_timeout else self.USB_WRITE_TIMEOUT_MILLIS)
+        timeout = int(
+            self._write_timeout * 1000 if self._write_timeout \
+                else self.USB_WRITE_TIMEOUT_MILLIS)
         wrote = 0
         while offset < len(data):
-            data_length = min(len(data) - offset, self.DEFAULT_WRITE_BUFFER_SIZE)
+            data_length = min(
+                len(data) - offset, 
+                self.DEFAULT_WRITE_BUFFER_SIZE)
             buf = data[offset:offset + data_length]
-            i = self._connection.bulkTransfer(self._write_endpoint,
-                                              buf,
-                                              data_length,
-                                              timeout)
+            i = self._connection.bulkTransfer(
+                self._write_endpoint,
+                buf,
+                data_length,
+                timeout)
             if i <= 0:
                 raise SerialException("Failed to write {}: {}".format(buf, i))
             offset += data_length
             wrote += i
         return wrote
     
-    def set_baudrate(self, baudrate):
+    def purgeHwBuffers(self, purgeReadBuffers, purgeWriteBuffers):
+        '''Set serial port parameters.
+        
+        Parameters:
+            purgeReadBuffers (bool): need to purge read buffer or not.
+            purgeWriteBuffers (bool): need to purge write buffer or not.
+        Returns:
+            result (bool): successful or not.
+        '''
+        if purgeReadBuffers:
+            result = self._ctrl_transfer_out(
+                self.SIO_RESET, 
+                self.SIO_RESET_PURGE_RX, 
+                0)
+            if result != 0:
+                raise SerialException(
+                    "Flushing RX failed: result={}".format(result))
+
+        if purgeWriteBuffers:
+            result = self._ctrl_transfer_out(
+                self.SIO_RESET, 
+                self.SIO_RESET_PURGE_TX, 
+                0)
+            if result != 0:
+                raise SerialException(
+                    "Flushing TX failed: result={}".format(result))
+        
+        return True
+    
+    def _set_baudrate(self, baudrate):
         '''Change the current UART baudrate.
         
         The FTDI device is not able to use an arbitrary baudrate. Its
         internal dividors are only able to achieve some baudrates.
         It attemps to find the closest configurable baudrate and if
         the deviation from the requested baudrate is too high, it rejects
-        the configuration.
-        see :py:attr:`baudrate` for the exact selected baudrate.
-        :py:const:`BAUDRATE_TOLERANCE` defines the maximum deviation, which
-            matches standard UART clock drift (3%)
-        :param int baudrate: the new baudrate for the UART.
-        :raise ValueError: if deviation from selected baudrate is too large
-        :rause SerialException: on IO Error
+        the configuration. 
+        
+        Parameters:
+            baudrate (int): the new baudrate for the UART.
+        
+        Raises:
+            ValueError: if deviation from selected baudrate is too large.
+            SerialException: if not able to set baudrate.
         '''
         actual, value, index = self._convert_baudrate(baudrate)
         delta = 100*abs(float(actual-baudrate))/baudrate
@@ -192,10 +284,18 @@ class FtdiSerial(SerialBase):
         result = self._ctrl_transfer_out(self.SIO_SET_BAUDRATE, value, index)
         if result != 0:
             raise SerialException('Unable to set baudrate')
-        # self.baudrate = baudrate
     
-    def setParameters(self, baudrate, databits, stopbits, parity):
-        self.set_baudrate(baudrate)
+    def _setParameters(self, baudrate, databits, parity, stopbits):
+        '''Set serial port parameters.
+        
+        Parameters:
+            baudrate (int): the new baudrate for the UART(eg 9600).
+            databits (int): number of bits in data(5, 6, 7 or 8).
+            parity (str): 'N', 'E', 'O', 'M' or 'S'.
+            stopbits (float): number of stop bits(1, 1.5, 2).
+        '''
+    
+        self._set_baudrate(baudrate)
         
         config = databits
         
@@ -223,56 +323,64 @@ class FtdiSerial(SerialBase):
         
         result = self._ctrl_transfer_out(self.SIO_SET_DATA, config, 0)
         if result != 0:
-            raise SerialException("Setting parameters failed: result={}".format(result))
-    
-    def purgeHwBuffers(self, purgeReadBuffers, purgeWriteBuffers):
-        if purgeReadBuffers:
-            result = self._ctrl_transfer_out(self.SIO_RESET, self.SIO_RESET_PURGE_RX, 0)
-            if result != 0:
-                raise SerialException("Flushing RX failed: result={}".format(result))
-
-        if purgeWriteBuffers:
-            result = self._ctrl_transfer_out(self.SIO_RESET, self.SIO_RESET_PURGE_TX, 0)
-            if result != 0:
-                raise SerialException("Flushing TX failed: result={}".format(result))
-        
-        return True
+            raise SerialException(
+                "Setting parameters failed: result={}".format(result))
     
     def _reconfigure_port(self):
-        self.setParameters(self.baudrate, self.bytesize , self.stopbits, self.parity)
+        '''Reconfigure serial port parameters.'''
+        self._setParameters(
+            self.baudrate, 
+            self.bytesize, 
+            self.parity, 
+            self.stopbits)
     
     def _ctrl_transfer_out(self, request, value, index):
-        return self._connection.controlTransfer(self.FTDI_DEVICE_OUT_REQTYPE, request, value, index, None, 0, self.USB_WRITE_TIMEOUT_MILLIS)
+        '''USB control transfer.
+        
+        This function does the USB configuration job.
+        '''
+        return self._connection.controlTransfer(
+            self.FTDI_DEVICE_OUT_REQTYPE, 
+            request, 
+            value, 
+            index, 
+            None, 
+            0, 
+            self.USB_WRITE_TIMEOUT_MILLIS)
     
     def _has_mpsse(self):
-        '''Tell whether the device supports MPSSE (I2C, SPI, JTAG, ...)
+        '''Tell whether the device supports MPSSE (I2C, SPI, JTAG, ...).
         
-        :return: True if the FTDI device supports MPSSE
-        :rtype: bool
-        :raise SerialException: if no FTDI port is open
+        Returns:
+            result (bool): True if the FTDI device supports MPSSE.
+        Raise:
+            SerialException: if no FTDI port is open.
         '''
         if not self._bcd_device:
             raise SerialException('Device characteristics not yet known!')
         return self._bcd_device in (0x0500, 0x0700, 0x0800, 0x0900)
     
     def _is_legacy(self):
-        '''Tell whether the device is a low-end FTDI
+        '''Tell whether the device is a low-end FTDI.
         
-        :return: True if the FTDI device can only be used as a slow USB-UART
-                bridge
-        :rtype: bool
-        :raise SerialException: if no FTDI port is open
+        Returns:
+            result (bool): True if the FTDI device can only be used as a slow
+            USB-UART bridge.
+        Raises:
+            SerialException: if no FTDI port is open.
         '''
         if not self._bcd_device:
             raise SerialException('Device characteristics not yet known!')
         return self._bcd_device <= 0x0200
 
     def _is_H_series(self):
-        '''Tell whether the device is a high-end FTDI
+        '''Tell whether the device is a high-end FTDI.
         
-        :return: True if the FTDI device is a high-end USB-UART bridge
-        :rtype: bool
-        :raise SerialException: if no FTDI port is open
+        Returns:
+            result (bool): True if the FTDI device is a high-end USB-UART 
+            bridge.
+        Raises:
+            SerialException: if no FTDI port is open.
         '''
         if not self._bcd_device:
             raise SerialException('Device characteristics not yet known!')
@@ -283,6 +391,12 @@ class FtdiSerial(SerialBase):
         
         Convert a requested baudrate into the closest possible baudrate that
         can be assigned to the FTDI device.
+        
+        Parameters:
+            baudrate (int): requested baudrate.
+        Returns:
+            result (tuple): (best_baud, value, index) for baudrate 
+                configuration.
         '''
         if baudrate < ((2*self.BAUDRATE_REF_BASE)//(2*16384+1)):
             raise ValueError('Invalid baudrate (too low)')
@@ -369,33 +483,32 @@ class FtdiSerial(SerialBase):
         return (best_baud, value, index)
     
     def _filterStatusBytes(self, src, dest, totalBytesRead, maxPacketSize):
-        '''Filter FTDI status bytes from buffer
+        '''Filter FTDI status bytes from buffer.
         
-        @param bytearray src The source buffer (which contains status bytes)
-        @param bytearray dest The destination buffer to write the status bytes into (can be src)
-        @param int totalBytesRead Number of bytes read to src
-        @param int maxPacketSize The USB endpoint max packet size
-        @return int The number of payload bytes
+        Parameters:
+            src (bytearray): the source buffer(which contains status bytes).
+            dest (bytearray): the destination buffer to write the status bytes
+                into(can be src).
+            totalBytesRead (int): number of bytes read to src.
+            maxPacketSize (int): the USB endpoint max packet size.
+        Returns:
+            result (int): the number of payload bytes.
         '''
-        packetsCount = totalBytesRead // maxPacketSize + (0 if totalBytesRead % maxPacketSize == 0 else 1)
+        packetsCount = totalBytesRead // maxPacketSize + (
+            0 if totalBytesRead % maxPacketSize == 0 else 1)
         for packetIdx in range(packetsCount):
-            count = (totalBytesRead % maxPacketSize) - self.MODEM_STATUS_HEADER_LENGTH if (packetIdx == (packetsCount - 1)) else maxPacketSize - self.MODEM_STATUS_HEADER_LENGTH
+            count = (totalBytesRead % maxPacketSize) - \
+                self.MODEM_STATUS_HEADER_LENGTH if (
+                    packetIdx == (packetsCount - 1)) else \
+                    maxPacketSize - self.MODEM_STATUS_HEADER_LENGTH
             if count > 0:
-                usb.arraycopy(src,
+                usb.arraycopy(
+                    src,
                     packetIdx * maxPacketSize + self.MODEM_STATUS_HEADER_LENGTH,
                     dest,
-                    packetIdx * (maxPacketSize - self.MODEM_STATUS_HEADER_LENGTH),
-                    count
-                )
+                    packetIdx * (
+                        maxPacketSize - self.MODEM_STATUS_HEADER_LENGTH),
+                    count)
                 
         return totalBytesRead - (packetsCount * 2)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+        
