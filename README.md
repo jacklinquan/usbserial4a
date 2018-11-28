@@ -4,7 +4,7 @@ Python package for Kivy Android USB serial port.
 For the moment it only supports FTDI devices.
 
 Drivers in roadmap are listed below:
-* FTDI serial driver - done.
+* FTDI serial driver - done and tested with FT230X.
 * CDC ACM serial driver - todo.
 * CP21xx serial driver - todo.
 * CH34x serial driver - todo.
@@ -15,11 +15,11 @@ Please consider [![Paypal Donate](https://github.com/jacklinquan/images/blob/mas
 The donation is going to be used to cover the cost of these devices for testing and debugging.
 
 ## How to use it:
-**If not in need to build a dedicated app:**
+**To make quick prototype or to test and debug the script before building an App:**
 
-It works for Android 6.0+.
+It works on Android 6.0+.
 
-If there is any FTDI usb serial device, connect it to the Android phone/tablet through USB OTG cable (It's needed for Android USB host function). 
+If there is any usb serial device, connect it to the Android phone/tablet through USB OTG cable (It's needed for Android USB host function). 
 
 Get Pydroid apps from [here](https://github.com/jacklinquan/Pydroid_Apks), or get the latest versions from [Google Play](https://play.google.com/store/apps).
 
@@ -33,9 +33,9 @@ Go to `Menu->Graphical program output`.
 
 Scroll to the last line, it should list all the USB devices connected to the Android phone/tablet with vendor id, vendor name, product id and product name.
 
-**If a dedicated app is needed to be built with buildozer:**
+**To build dedicated Apps with buildozer:**
 
-It works for Android 4.0+.
+It works on Android 4.0+.
 
 In `buildozer.spec` add `termios.so` to the whitelist.
 
