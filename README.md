@@ -3,6 +3,17 @@ Python package for Kivy Android USB serial port.
 
 For the moment it only supports FTDI devices.
 
+Drivers in roadmap are listed below:
+* FTDI serial driver - done.
+* CDC ACM serial driver - todo.
+* CP21xx serial driver - todo.
+* CH34x serial driver - todo.
+* Prolific serial driver - todo.
+
+Please consider [![Paypal Donate](https://github.com/jacklinquan/images/blob/master/paypal_donate_button_200x80.png)](https://www.paypal.me/jacklinquan) to speed up the process.
+
+The donation is going to be used to cover the cost of these devices for testing and debugging.
+
 ## How to use it:
 **If not in need to build a dedicated app:**
 
@@ -12,9 +23,9 @@ If there is any FTDI usb serial device, connect it to the Android phone/tablet t
 
 Get Pydroid apps from [here](https://github.com/jacklinquan/Pydroid_Apks), or get the latest versions from [Google Play](https://play.google.com/store/apps).
 
-In Pydroid, go to `Menu->Pip`.
+In Pydroid, go to `Menu->Pip` and install `usbserial4a`.
 
-Install `usbserial4a`.
+Or go to `Menu->Terminal` and enter `pip install usbserial4a`.
 
 Open `example.py` and run it. When it runs for the first time, it might prompt you for permission to access the USB device. Accept the permission and run this script again, then it should send the data `b'Hello world!'` as expected.
 
@@ -63,3 +74,5 @@ Find a manifest template file like this one:
 Add  `<uses-feature android:name="android.hardware.usb.host" />`  to this `AndroidManifest.tmpl.xml` at a good position.
 
 Build the project again and it should pass.
+
+The serial port class extends pyserial's SerialBase class. So it can be used in a similar way to serial.Serial from pyserial.
