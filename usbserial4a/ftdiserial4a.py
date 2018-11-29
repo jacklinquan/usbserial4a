@@ -161,14 +161,11 @@ class FtdiSerial(SerialBase):
             if result != 0:
                 raise SerialException("Reset failed: result={}".format(result))
     
-    def read(self, data_length=1):
+    def read(self):
         '''Read data from the serial port.
         
         This method should be used in another thread, as it blocks.
         
-        Parameters:
-            data_length (int): the length of read buffer(better <= 1024).
-    
         Returns:
             dest (bytearray): data read from the serial port. 
         '''
@@ -177,14 +174,14 @@ class FtdiSerial(SerialBase):
         if not self._read_endpoint:
             raise SerialException("Read endpoint does not exist!")
         
-        buf = bytearray(data_length)
+        buf = bytearray(1024)
         timeout = int(
             self._timeout * 1000 if self._timeout \
                 else self.USB_READ_TIMEOUT_MILLIS)
         totalBytesRead = self._connection.bulkTransfer(
             self._read_endpoint, 
             buf, 
-            data_length, 
+            1024, 
             timeout)
         if totalBytesRead < self.MODEM_STATUS_HEADER_LENGTH:
             raise SerialException(
