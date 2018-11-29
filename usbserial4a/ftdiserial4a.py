@@ -4,6 +4,7 @@ Classes:
 FtdiSerial(serial.serialutil.SerialBase)
 '''
 
+import time
 from serial.serialutil import SerialBase, SerialException
 from usb4a import usb
 
@@ -163,7 +164,7 @@ class FtdiSerial(SerialBase):
     def read(self, data_length=1):
         '''Read data from the serial port.
         
-        This function should be used in another thread, as it blocks.
+        This method should be used in another thread, as it blocks.
         
         Parameters:
             data_length (int): the length of read buffer(better <= 1024).
@@ -229,6 +230,14 @@ class FtdiSerial(SerialBase):
             offset += data_length
             wrote += i
         return wrote
+    
+    def flush(self, flush_time=0.2):
+        '''Simply wait some time to allow all data to be written.
+        
+        Parameters:
+            flush_time (float): time in seconds to wait.
+        '''
+        time.sleep(flush_time)
     
     def purgeHwBuffers(self, purgeReadBuffers, purgeWriteBuffers):
         '''Set serial port parameters.
