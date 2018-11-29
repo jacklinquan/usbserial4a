@@ -88,6 +88,7 @@ class FtdiSerial(SerialBase):
         self._control_endpoint = None
         self._read_endpoint = None
         self._write_endpoint = None
+        self._read_buffer = bytearray()
         super(FtdiSerial, self).__init__(*args, **kwargs)
     
     def open(self):
@@ -161,40 +162,59 @@ class FtdiSerial(SerialBase):
             if result != 0:
                 raise SerialException("Reset failed: result={}".format(result))
     
-    def read(self):
+    def read(self, size=1):
         '''Read data from the serial port.
         
-        This method should be used in another thread, as it blocks.
-        
+        Parameters:
+            size (int): the number of data bytes to read.
+    
         Returns:
-            dest (bytearray): data read from the serial port. 
+            read (bytes): data bytes read from the serial port. 
         '''
         if not self.is_open:
             return None
         if not self._read_endpoint:
             raise SerialException("Read endpoint does not exist!")
         
-        buf = bytearray(1024)
-        timeout = int(
-            self._timeout * 1000 if self._timeout \
-                else self.USB_READ_TIMEOUT_MILLIS)
-        totalBytesRead = self._connection.bulkTransfer(
-            self._read_endpoint, 
-            buf, 
-            1024, 
-            timeout)
-        if totalBytesRead < self.MODEM_STATUS_HEADER_LENGTH:
-            raise SerialException(
-                "Expected at least {} bytes".format(
-                    self.MODEM_STATUS_HEADER_LENGTH))
-    
-        dest = bytearray()
-        self._filterStatusBytes(
-            buf, 
-            dest, 
-            totalBytesRead, 
-            self._read_endpoint.getMaxPacketSize())
-        return dest
+        read = bytearray()
+        
+        if (size <= len(self._read_buffer)):
+            # There is enough data in read buffer.
+            # Get data from read buffer.
+            read = self._read_buffer[:size]
+            self._read_buffer = self._read_buffer[size:]
+        else:
+            timeout = int(
+                self._timeout * 1000 if self._timeout \
+                    else self.USB_READ_TIMEOUT_MILLIS)
+            
+            # Get raw data from hardware.
+            buf = bytearray(1024)
+            totalBytesRead = self._connection.bulkTransfer(
+                self._read_endpoint, 
+                buf, 
+                1024, 
+                timeout)
+            if totalBytesRead < self.MODEM_STATUS_HEADER_LENGTH:
+                raise SerialException(
+                    "Expected at least {} bytes".format(
+                        self.MODEM_STATUS_HEADER_LENGTH))
+        
+            # Translate raw data into serial port data.
+            dest = bytearray()
+            self._filterStatusBytes(
+                buf, 
+                dest, 
+                totalBytesRead, 
+                self._read_endpoint.getMaxPacketSize())
+            
+            # Put serial port data into read buffer.
+            self._read_buffer.extend(dest)
+            # Get data from read buffer.
+            read = self._read_buffer[:size]
+            self._read_buffer = self._read_buffer[size:]
+            
+        return bytes(read)
     
     def write(self, data):
         '''Write data to the serial port.
