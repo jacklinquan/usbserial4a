@@ -9,4 +9,4 @@ Requires: kivy, pyjnius, pyserial, usb4a
 '''
 
 # Project version
-__version__ = '0.1.0'
+__version__ = '0.1.1'
