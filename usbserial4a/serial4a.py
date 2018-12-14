@@ -6,6 +6,7 @@ get_serial_port
 
 from usb4a import usb
 from .ftdiserial4a import FtdiSerial
+from .cdcacmserial4a import CdcAcmSerial
 
 FTDI_VENDOR_ID = 0x0403
 VENDOR_IDS = {'ftdi': FTDI_VENDOR_ID}
@@ -40,7 +41,7 @@ def get_serial_port(device_name, *args, **kwargs):
         if device.getVendorId() == VENDOR_IDS['ftdi']:
             return FtdiSerial(device_name, *args, **kwargs)
         else:
-            raise usb.USBError('Vendor ID is not supported!')
+            return CdcAcmSerial(device_name, *args, **kwargs)
     else:
         raise usb.USBError('Device does not exist!')
     

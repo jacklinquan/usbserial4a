@@ -138,7 +138,7 @@ class FtdiSerial(SerialBase):
                 (ep.getType() == usb.UsbConstants.USB_ENDPOINT_XFER_BULK)):
                 self._write_endpoint = ep  
                 
-        #: Check that all endpoints are good
+        # Check that all endpoints are good
         if None in [self._write_endpoint, self._read_endpoint]:
             raise SerialException("Could not establish all endpoints!")
         
@@ -523,10 +523,10 @@ class FtdiSerial(SerialBase):
         packetsCount = totalBytesRead // maxPacketSize + (
             0 if totalBytesRead % maxPacketSize == 0 else 1)
         for packetIdx in range(packetsCount):
-            count = (totalBytesRead % maxPacketSize) - \
-                self.MODEM_STATUS_HEADER_LENGTH if (
-                    packetIdx == (packetsCount - 1)) else \
-                    maxPacketSize - self.MODEM_STATUS_HEADER_LENGTH
+            count = ((totalBytesRead % maxPacketSize) -
+                self.MODEM_STATUS_HEADER_LENGTH) if (
+                    packetIdx == (packetsCount - 1)) else (
+                    maxPacketSize - self.MODEM_STATUS_HEADER_LENGTH)
             if count > 0:
                 usb.arraycopy(
                     src,

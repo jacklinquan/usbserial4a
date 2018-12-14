@@ -5,14 +5,12 @@ For the moment it only supports FTDI devices.
 
 Drivers in roadmap are listed below:
 * FTDI serial driver - done and tested with FT230X.
-* CDC ACM serial driver - todo.
+* CDC ACM serial driver - done and tested with MCP2200.
 * CP21xx serial driver - todo.
 * CH34x serial driver - todo.
 * Prolific serial driver - todo.
 
-Please consider [![Paypal Donate](https://github.com/jacklinquan/images/blob/master/paypal_donate_button_200x80.png)](https://www.paypal.me/jacklinquan) to speed up the process.
-
-The donation is going to be used to cover the cost of these devices for testing and debugging.
+Please consider [![Paypal Donate](https://github.com/jacklinquan/images/blob/master/paypal_donate_button_200x80.png)](https://www.paypal.me/jacklinquan) to support me.
 
 ## How to use it:
 **To make quick prototype or to test and debug the script before building an App:**
