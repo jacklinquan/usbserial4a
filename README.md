@@ -1,8 +1,6 @@
 # usbserial4a
 Python package for Kivy Android USB serial port.
 
-For the moment it only supports FTDI devices.
-
 Drivers in roadmap are listed below:
 * FTDI serial driver - done and tested with FT230X.
 * CDC ACM serial driver - done and tested with MCP2200.
