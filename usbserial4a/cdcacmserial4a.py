@@ -4,8 +4,8 @@ Classes:
 CdcAcmSerial(serial.serialutil.SerialBase)
 '''
 
-import time
-from serial.serialutil import SerialBase, SerialException
+from serial.serialutil import SerialBase, SerialException, to_bytes, \
+    portNotOpenError, writeTimeoutError, Timeout
 from usb4a import usb
 
 class CdcAcmSerial(SerialBase):
@@ -34,11 +34,11 @@ class CdcAcmSerial(SerialBase):
         'M':3,
         'S':4}
     
-    DEFAULT_READ_BUFFER_SIZE = 16 * 1024
+    DEFAULT_READ_BUFFER_SIZE = 1024
     DEFAULT_WRITE_BUFFER_SIZE = 16 * 1024
     
+    USB_READ_TIMEOUT_MILLIS = 1
     USB_WRITE_TIMEOUT_MILLIS = 5000
-    USB_READ_TIMEOUT_MILLIS = 5000
     
     def __init__(self, *args, **kwargs):
         self._device = None
@@ -153,6 +153,17 @@ class CdcAcmSerial(SerialBase):
         self._connection = None
         self.is_open = False
     
+    @property
+    def in_waiting(self):
+        '''Return the number of bytes currently in the input buffer.
+        
+        Returns:
+            Length (int): number of data bytes in the input buffer. 
+        '''
+        # Read from serial port hardware and put the data into read buffer.
+        self._read_buffer.extend(self._read())
+        return len(self._read_buffer)
+    
     def read(self, size=1):
         '''Read data from the serial port.
         
@@ -162,40 +173,18 @@ class CdcAcmSerial(SerialBase):
         Returns:
             read (bytes): data bytes read from the serial port. 
         '''
-        if not self.is_open:
-            return None
-        if not self._read_endpoint:
-            raise SerialException("Read endpoint does not exist!")
-        
         read = bytearray()
+        timeout = Timeout(self.timeout)
         
-        if (size <= len(self._read_buffer)):
-            # There is enough data in read buffer.
-            # Get data from read buffer.
-            read = self._read_buffer[:size]
-            self._read_buffer = self._read_buffer[size:]
-        else:
-            timeout = int(
-                self._timeout * 1000 if self._timeout \
-                    else self.USB_READ_TIMEOUT_MILLIS)
-            
-            # Get raw data from hardware.
-            buf = bytearray(1024)
-            totalBytesRead = self._connection.bulkTransfer(
-                self._read_endpoint, 
-                buf, 
-                1024, 
-                timeout)
-            if totalBytesRead < 0:
-                # Read timeout. Set totalBytesRead to 0.
-                totalBytesRead = 0
+        # Keep reading until there is enough data or timeout.
+        while self.in_waiting < size:
+            if timeout.expired():
+                break
         
-            # Put serial port data into read buffer.
-            self._read_buffer.extend(buf[:totalBytesRead])
-            # Get data from read buffer.
-            read = self._read_buffer[:size]
-            self._read_buffer = self._read_buffer[size:]
-            
+        # Get data from read buffer.
+        read = self._read_buffer[:size]
+        self._read_buffer = self._read_buffer[size:]
+        
         return bytes(read)
     
     def write(self, data):
@@ -230,13 +219,34 @@ class CdcAcmSerial(SerialBase):
             wrote += i
         return wrote
     
-    def flush(self, flush_time=0.2):
-        '''Simply wait some time to allow all data to be written.
+    def flush(self):
+        '''Simply wait some time to allow all data to be written.'''
+        pass
+    
+    def _read(self):
+        '''Hardware dependent read function.
         
-        Parameters:
-            flush_time (float): time in seconds to wait.
+        Returns:
+            read (bytes): data bytes read from the serial port.
         '''
-        time.sleep(flush_time)
+        if not self.is_open:
+            raise portNotOpenError
+        if not self._read_endpoint:
+            raise SerialException("Read endpoint does not exist!")
+        
+        # Get raw data from hardware.
+        buf = bytearray(self.DEFAULT_READ_BUFFER_SIZE)
+        totalBytesRead = self._connection.bulkTransfer(
+            self._read_endpoint, 
+            buf, 
+            self.DEFAULT_READ_BUFFER_SIZE, 
+            self.USB_READ_TIMEOUT_MILLIS)
+        if totalBytesRead < 0:
+            # Read timeout. Set totalBytesRead to 0.
+            totalBytesRead = 0
+    
+        read = buf[:totalBytesRead]
+        return bytes(read)
     
     def _send_acm_control_message(self, request, value, buf=None):
         '''USB control transfer.

@@ -12,6 +12,7 @@ from kivy.uix.button import Button
 from kivy.clock import mainthread
 from kivy.utils import platform
 import threading
+import sys
 
 if platform == 'android':
     from usb4a import usb
@@ -133,7 +134,7 @@ class MainApp(App):
                 8,
                 'N',
                 1,
-                timeout=0.5)
+                timeout=1)
         else:
             self.serial_port = Serial(
                 device_name,
@@ -141,7 +142,7 @@ class MainApp(App):
                 8,
                 'N',
                 1,
-                timeout=0.5)
+                timeout=1)
         
         if self.serial_port.is_open and not self.read_thread:
             self.read_thread = threading.Thread(target = self.read_msg_thread)
@@ -151,22 +152,27 @@ class MainApp(App):
 
     def on_btn_write_release(self):
         if self.serial_port and self.serial_port.is_open:
-            self.serial_port.write(
-                bytes(self.uiDict['txtInput_write'].text + '\n'))
+            if sys.version_info < (3, 0):
+                data = bytes(self.uiDict['txtInput_write'].text + '\n')
+            else:
+                data = bytes(
+                    (self.uiDict['txtInput_write'].text + '\n'), 'utf8')
+            self.serial_port.write(data)
             self.uiDict['txtInput_read'].text += '[Sent]{}\n'.format(
                 self.uiDict['txtInput_write'].text)
             self.uiDict['txtInput_write'].text = ''
     
     def read_msg_thread(self):
         while True:
+            if not self.serial_port.is_open:
+                break
             try:
-                if not self.serial_port.is_open:
-                    break
                 received_msg = self.serial_port.read()
                 if received_msg:
                     self.display_received_msg(str(received_msg))
-            except:
-                break
+            except Exception as ex:
+                raise ex
+                # break
         
     @mainthread
     def display_received_msg(self, msg):

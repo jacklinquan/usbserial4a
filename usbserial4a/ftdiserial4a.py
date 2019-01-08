@@ -4,8 +4,8 @@ Classes:
 FtdiSerial(serial.serialutil.SerialBase)
 '''
 
-import time
-from serial.serialutil import SerialBase, SerialException
+from serial.serialutil import SerialBase, SerialException, to_bytes, \
+    portNotOpenError, writeTimeoutError, Timeout
 from usb4a import usb
 
 class FtdiSerial(SerialBase):
@@ -61,9 +61,6 @@ class FtdiSerial(SerialBase):
     BAUDRATE_TOLERANCE = 3.0  # acceptable clock drift, in %
     BITBANG_CLOCK_MULTIPLIER = 4
     
-    DEFAULT_READ_BUFFER_SIZE = 16 * 1024
-    DEFAULT_WRITE_BUFFER_SIZE = 16 * 1024
-    
     FTDI_DEVICE_OUT_REQTYPE = usb.build_usb_control_request_type(
         usb.UsbConstants.USB_DIR_OUT, 
         usb.UsbConstants.USB_TYPE_VENDOR, 
@@ -73,8 +70,11 @@ class FtdiSerial(SerialBase):
         usb.UsbConstants.USB_TYPE_VENDOR, 
         usb.USB_RECIPIENT_DEVICE)
     
-    USB_WRITE_TIMEOUT_MILLIS = 5000
+    DEFAULT_READ_BUFFER_SIZE = 1024
+    DEFAULT_WRITE_BUFFER_SIZE = 16 * 1024
+    
     USB_READ_TIMEOUT_MILLIS = 5000
+    USB_WRITE_TIMEOUT_MILLIS = 5000
     
     # Length of the modem status header, transmitted with every read.
     MODEM_STATUS_HEADER_LENGTH = 2
@@ -162,6 +162,17 @@ class FtdiSerial(SerialBase):
             if result != 0:
                 raise SerialException("Reset failed: result={}".format(result))
     
+    @property
+    def in_waiting(self):
+        '''Return the number of bytes currently in the input buffer.
+        
+        Returns:
+            Length (int): number of data bytes in the input buffer. 
+        '''
+        # Read from serial port hardware and put the data into read buffer.
+        self._read_buffer.extend(self._read())
+        return len(self._read_buffer)
+    
     def read(self, size=1):
         '''Read data from the serial port.
         
@@ -171,49 +182,18 @@ class FtdiSerial(SerialBase):
         Returns:
             read (bytes): data bytes read from the serial port. 
         '''
-        if not self.is_open:
-            return None
-        if not self._read_endpoint:
-            raise SerialException("Read endpoint does not exist!")
-        
         read = bytearray()
+        timeout = Timeout(self.timeout)
         
-        if (size <= len(self._read_buffer)):
-            # There is enough data in read buffer.
-            # Get data from read buffer.
-            read = self._read_buffer[:size]
-            self._read_buffer = self._read_buffer[size:]
-        else:
-            timeout = int(
-                self._timeout * 1000 if self._timeout \
-                    else self.USB_READ_TIMEOUT_MILLIS)
-            
-            # Get raw data from hardware.
-            buf = bytearray(1024)
-            totalBytesRead = self._connection.bulkTransfer(
-                self._read_endpoint, 
-                buf, 
-                1024, 
-                timeout)
-            if totalBytesRead < self.MODEM_STATUS_HEADER_LENGTH:
-                raise SerialException(
-                    "Expected at least {} bytes".format(
-                        self.MODEM_STATUS_HEADER_LENGTH))
+        # Keep reading until there is enough data or timeout.
+        while self.in_waiting < size:
+            if timeout.expired():
+                break
         
-            # Translate raw data into serial port data.
-            dest = bytearray()
-            self._filterStatusBytes(
-                buf, 
-                dest, 
-                totalBytesRead, 
-                self._read_endpoint.getMaxPacketSize())
-            
-            # Put serial port data into read buffer.
-            self._read_buffer.extend(dest)
-            # Get data from read buffer.
-            read = self._read_buffer[:size]
-            self._read_buffer = self._read_buffer[size:]
-            
+        # Get data from read buffer.
+        read = self._read_buffer[:size]
+        self._read_buffer = self._read_buffer[size:]
+        
         return bytes(read)
     
     def write(self, data):
@@ -248,13 +228,9 @@ class FtdiSerial(SerialBase):
             wrote += i
         return wrote
     
-    def flush(self, flush_time=0.2):
-        '''Simply wait some time to allow all data to be written.
-        
-        Parameters:
-            flush_time (float): time in seconds to wait.
-        '''
-        time.sleep(flush_time)
+    def flush(self):
+        '''Simply wait some time to allow all data to be written.'''
+        pass
     
     def purgeHwBuffers(self, purgeReadBuffers, purgeWriteBuffers):
         '''Set serial port parameters.
@@ -284,6 +260,39 @@ class FtdiSerial(SerialBase):
                     "Flushing TX failed: result={}".format(result))
         
         return True
+    
+    def _read(self):
+        '''Hardware dependent read function.
+        
+        Returns:
+            read (bytes): data bytes read from the serial port.
+        '''
+        if not self.is_open:
+            raise portNotOpenError
+        if not self._read_endpoint:
+            raise SerialException("Read endpoint does not exist!")
+            
+        # Get raw data from hardware.
+        buf = bytearray(self.DEFAULT_READ_BUFFER_SIZE)
+        totalBytesRead = self._connection.bulkTransfer(
+            self._read_endpoint, 
+            buf, 
+            self.DEFAULT_READ_BUFFER_SIZE, 
+            self.USB_READ_TIMEOUT_MILLIS)
+        if totalBytesRead < self.MODEM_STATUS_HEADER_LENGTH:
+            raise SerialException(
+                "Expected at least {} bytes".format(
+                    self.MODEM_STATUS_HEADER_LENGTH))
+    
+        # Translate raw data into serial port data.
+        read = bytearray()
+        self._filterStatusBytes(
+            buf, 
+            read, 
+            totalBytesRead, 
+            self._read_endpoint.getMaxPacketSize())
+            
+        return bytes(read)
     
     def _set_baudrate(self, baudrate):
         '''Change the current UART baudrate.
