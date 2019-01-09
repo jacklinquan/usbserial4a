@@ -169,10 +169,10 @@ class MainApp(App):
             try:
                 received_msg = self.serial_port.read()
                 if received_msg:
-                    self.display_received_msg(str(received_msg))
+                    msg = bytes(received_msg).decode('utf8')
+                    self.display_received_msg(msg)
             except Exception as ex:
                 raise ex
-                # break
         
     @mainthread
     def display_received_msg(self, msg):
