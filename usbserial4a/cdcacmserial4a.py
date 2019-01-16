@@ -37,7 +37,7 @@ class CdcAcmSerial(SerialBase):
     DEFAULT_READ_BUFFER_SIZE = 1024
     DEFAULT_WRITE_BUFFER_SIZE = 16 * 1024
     
-    USB_READ_TIMEOUT_MILLIS = 1
+    USB_READ_TIMEOUT_MILLIS = 50
     USB_WRITE_TIMEOUT_MILLIS = 5000
     
     def __init__(self, *args, **kwargs):
@@ -176,10 +176,12 @@ class CdcAcmSerial(SerialBase):
         read = bytearray()
         timeout = Timeout(self.timeout)
         
-        # Keep reading until there is enough data or timeout.
-        while self.in_waiting < size:
-            if timeout.expired():
-                break
+        # If there is enough data in the buffer, do not bother to read.
+        if len(self._read_buffer) < size:
+            # Keep reading until there is enough data or timeout.
+            while self.in_waiting < size:
+                if timeout.expired():
+                    break
         
         # Get data from read buffer.
         read = self._read_buffer[:size]

@@ -185,10 +185,12 @@ class FtdiSerial(SerialBase):
         read = bytearray()
         timeout = Timeout(self.timeout)
         
-        # Keep reading until there is enough data or timeout.
-        while self.in_waiting < size:
-            if timeout.expired():
-                break
+        # If there is enough data in the buffer, do not bother to read.
+        if len(self._read_buffer) < size:
+            # Keep reading until there is enough data or timeout.
+            while self.in_waiting < size:
+                if timeout.expired():
+                    break
         
         # Get data from read buffer.
         read = self._read_buffer[:size]
