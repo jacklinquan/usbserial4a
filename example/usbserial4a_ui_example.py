@@ -90,6 +90,7 @@ class MainApp(App):
         self.device_name_list = []
         self.serial_port = None
         self.read_thread = None
+        self.port_thread_lock = threading.Lock()
         super(MainApp, self).__init__(*args, **kwargs)
 
     def build(self):
@@ -97,7 +98,8 @@ class MainApp(App):
 
     def on_stop(self):
         if self.serial_port:
-            self.serial_port.close()
+            with self.port_thread_lock:
+                self.serial_port.close()
         
     def on_btn_scan_release(self):
         self.uiDict['box_list'].clear_widgets()
@@ -106,7 +108,8 @@ class MainApp(App):
         if platform == 'android':
             usb_device_list = usb.get_usb_device_list()
             self.device_name_list = [
-                device.getDeviceName() for device in usb_device_list]
+                device.getDeviceName() for device in usb_device_list
+            ]
         else:
             usb_device_list = list_ports.comports()
             self.device_name_list = [port.device for port in usb_device_list]
@@ -124,7 +127,8 @@ class MainApp(App):
             device = usb.get_usb_device(device_name)
             if not device:
                 raise SerialException(
-                    "Device {} not present!".format(device_name))
+                    "Device {} not present!".format(device_name)
+                )
             if not usb.has_usb_permission(device):
                 usb.request_usb_permission(device)
                 return
@@ -134,7 +138,8 @@ class MainApp(App):
                 8,
                 'N',
                 1,
-                timeout=1)
+                timeout=1
+            )
         else:
             self.serial_port = Serial(
                 device_name,
@@ -142,7 +147,8 @@ class MainApp(App):
                 8,
                 'N',
                 1,
-                timeout=1)
+                timeout=1
+            )
         
         if self.serial_port.is_open and not self.read_thread:
             self.read_thread = threading.Thread(target = self.read_msg_thread)
@@ -156,24 +162,30 @@ class MainApp(App):
                 data = bytes(self.uiDict['txtInput_write'].text + '\n')
             else:
                 data = bytes(
-                    (self.uiDict['txtInput_write'].text + '\n'), 'utf8')
+                    (self.uiDict['txtInput_write'].text + '\n'),
+                    'utf8'
+                )
             self.serial_port.write(data)
             self.uiDict['txtInput_read'].text += '[Sent]{}\n'.format(
-                self.uiDict['txtInput_write'].text)
+                self.uiDict['txtInput_write'].text
+            )
             self.uiDict['txtInput_write'].text = ''
     
     def read_msg_thread(self):
         while True:
-            if not self.serial_port.is_open:
-                break
             try:
-                received_msg = self.serial_port.read()
+                with self.port_thread_lock:
+                    if not self.serial_port.is_open:
+                        break
+                    received_msg = self.serial_port.read(
+                        self.serial_port.in_waiting
+                    )
                 if received_msg:
                     msg = bytes(received_msg).decode('utf8')
                     self.display_received_msg(msg)
             except Exception as ex:
                 raise ex
-        
+                
     @mainthread
     def display_received_msg(self, msg):
         self.uiDict['txtInput_read'].text += msg
