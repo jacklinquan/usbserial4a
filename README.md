@@ -1,4 +1,6 @@
 # usbserial4a
+[![PyPI version](https://badge.fury.io/py/usbserial4a.svg)](https://badge.fury.io/py/usbserial4a) [![Downloads](https://pepy.tech/badge/usbserial4a)](https://pepy.tech/project/usbserial4a)
+
 Python package for Kivy Android USB serial port.
 
 Drivers in roadmap are listed below:
