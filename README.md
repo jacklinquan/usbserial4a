@@ -3,12 +3,12 @@
 
 Python package for Kivy Android USB serial port.
 
-Drivers in roadmap are listed below:
+Implemented drivers are listed below:
 * FTDI serial driver - done and tested with FT230X.
 * CDC ACM serial driver - done and tested with MCP2200.
 * CP210x serial driver - done and tested with CP2102.
 * CH34x serial driver - done and tested with CH340.
-* PL2303 serial driver - todo.
+* PL2303 serial driver - done and tested with PL2303.
 
 Please consider [![Paypal Donate](https://github.com/jacklinquan/images/blob/master/paypal_donate_button_200x80.png)](https://www.paypal.me/jacklinquan) to support me.
 
