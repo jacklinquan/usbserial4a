@@ -3,6 +3,8 @@
 
 Python package for Kivy Android USB serial port.
 
+Please try the Android App built with usbserial4a on Google Play: [PyTool USB Serial Free](https://play.google.com/store/apps/details?id=com.quanlin.pytoolusbserialfree).
+
 Implemented drivers are listed below:
 * FTDI serial driver - done and tested with FT230X.
 * CDC ACM serial driver - done and tested with MCP2200.
@@ -19,7 +21,7 @@ It works on Android 6.0+.
 
 If there is any usb serial device, connect it to the Android phone/tablet through USB OTG cable (It's needed for Android USB host function). 
 
-Get Pydroid Apps from [here](https://github.com/jacklinquan/Pydroid_Apks), or get the latest versions from [Google Play](https://play.google.com/store/apps).
+Get Pydroid Apps from [here](https://github.com/jacklinquan/Pydroid_Apks), or get the latest versions on [Google Play](https://play.google.com/store/apps).
 
 In Pydroid, go to `Menu->Pip` and install `usbserial4a`.
 
