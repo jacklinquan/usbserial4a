@@ -3,7 +3,7 @@
 
 Python package for Kivy Android USB serial port.
 
-Please try the Android App built with usbserial4a on Google Play: [PyTool USB Serial Free](https://play.google.com/store/apps/details?id=com.quanlin.pytoolusbserialfree).
+Please try the Android App built with usbserial4a on Google Play: [PyTool USB Serial Free](https://play.google.com/store/apps/details?id=com.quanlin.pytoolusbserialfree), [PyTool Modbus Free](https://play.google.com/store/apps/details?id=com.quanlin.pytoolmodbusfree).
 
 Implemented drivers are listed below:
 * FTDI serial driver - done and tested with FT230X.
