@@ -7,7 +7,7 @@ FtdiSerial(serial.serialutil.SerialBase)
 from struct import unpack
 import time
 from serial.serialutil import SerialBase, SerialException, to_bytes, \
-    portNotOpenError, writeTimeoutError, Timeout
+    PortNotOpenError, Timeout
 from usb4a import usb
 
 class FtdiSerial(SerialBase):
