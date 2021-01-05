@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="usbserial4a",
-    version="0.2.0",
+    version="0.3.0",
     description="Python package for Kivy Android USB serial port.",
     long_description="https://github.com/jacklinquan/usbserial4a",
     long_description_content_type="text/markdown",
@@ -19,5 +19,5 @@ setup(
         "Programming Language :: Python :: 3"
         ],
     packages=["usbserial4a"],
-    install_requires=["pyserial", "usb4a"]
+    install_requires=["usb4a"]
     )

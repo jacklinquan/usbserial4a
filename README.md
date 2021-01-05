@@ -74,5 +74,3 @@ Find a manifest template file like this one:
 Add  `<uses-feature android:name="android.hardware.usb.host" />`  to this `AndroidManifest.tmpl.xml` at a good position.
 
 Build the project again and it should pass.
-
-The serial port class extends pyserial's SerialBase class. So it can be used in a similar way to serial.Serial from pyserial.
