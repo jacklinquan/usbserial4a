@@ -39,7 +39,7 @@ It works on Android 4.0+.
 
 In `buildozer.spec` add `termios.so` to the whitelist.
 
-Include `pyserial`, `usb4a` and `usbserial4a` in requirements.
+Include `usb4a` and `usbserial4a` in requirements.
 
 Add `intent-filter.xml`.
 
@@ -49,7 +49,7 @@ android.p4a_whitelist = lib-dynload/termios.so
 
 # (list) Application requirements
 # comma seperated e.g. requirements = sqlite3,kivy
-requirements = kivy, pyjnius, pyserial, usb4a, usbserial4a
+requirements = kivy, pyjnius, usb4a, usbserial4a
 
 # (str) XML file to include as an intent filters in <activity> tag
 android.manifest.intent_filters = intent-filter.xml 
