@@ -42,7 +42,9 @@ class CdcAcmSerial(SerialBase):
     def __init__(self, *args, **kwargs):
         self._device = None
         self._connection = None
-        self._interface = None
+        self._control_index = None
+        self._control_interface = None
+        self._data_interface = None
         self._control_endpoint = None
         self._read_endpoint = None
         self._write_endpoint = None
@@ -91,6 +93,7 @@ class CdcAcmSerial(SerialBase):
         device = self._device
 
         # Claiming control/data interface.
+        self._control_index = 0
         self._control_interface = device.getInterface(0)
         self._data_interface = device.getInterface(0)
         if not self._connection.claimInterface(self._control_interface, True):
@@ -131,20 +134,41 @@ class CdcAcmSerial(SerialBase):
         """Open default interface device."""
         device = self._device
 
-        # Claiming control interface.
-        self._control_interface = device.getInterface(0)
+        for i in range(device.getInterfaceCount()):
+            interface = device.getInterface(i)
+            if interface.getInterfaceClass() == usb.UsbConstants.USB_CLASS_COMM:
+                self._control_index = i
+                self._control_interface = interface
+            if interface.getInterfaceClass() == usb.UsbConstants.USB_CLASS_CDC_DATA:
+                self._data_interface = interface
+
+        if self._control_interface is None:
+            raise SerialException("Could not find control interface.")
         if not self._connection.claimInterface(self._control_interface, True):
             raise SerialException("Could not claim control interface.")
 
         self._control_endpoint = self._control_interface.getEndpoint(0)
 
-        # Claiming data interface.
-        self._data_interface = device.getInterface(1)
+        if self._data_interface is None:
+            raise SerialException("Could not find data interface.")
         if not self._connection.claimInterface(self._data_interface, True):
             raise SerialException("Could not claim data interface.")
 
-        self._read_endpoint = self._data_interface.getEndpoint(1)
-        self._write_endpoint = self._data_interface.getEndpoint(0)
+        for i in range(self._data_interface.getEndpointCount()):
+            ep = self._data_interface.getEndpoint(i)
+            if (
+                ep.getDirection() == usb.UsbConstants.USB_DIR_IN
+                and ep.getType() == usb.UsbConstants.USB_ENDPOINT_XFER_BULK
+            ):
+                self._read_endpoint = ep
+            if (
+                ep.getDirection() == usb.UsbConstants.USB_DIR_OUT
+                and ep.getType() == usb.UsbConstants.USB_ENDPOINT_XFER_BULK
+            ):
+                self._write_endpoint = ep
+
+        if None in (self._read_endpoint, self._write_endpoint):
+            raise SerialException("Could not find read/write endpoint.")
 
     def _reconfigure_port(self):
         """Reconfigure serial port parameters."""
@@ -318,7 +342,7 @@ class CdcAcmSerial(SerialBase):
             self.REQTYPE_HOST2DEVICE,
             request,
             value,
-            0,
+            self._control_index,
             buf,
             (0 if buf is None else len(buf)),
             self.USB_WRITE_TIMEOUT_MILLIS,
@@ -335,7 +359,7 @@ class CdcAcmSerial(SerialBase):
             self.REQTYPE_DEVICE2HOST,
             request,
             value,
-            0,
+            self._control_index,
             buf,
             (0 if buf is None else len(buf)),
             self.USB_READ_TIMEOUT_MILLIS,
